@@ -135,6 +135,21 @@ export function resolveAdaptiveQuestion(question, answers = {}, questionLookup =
 }
 
 /**
+ * Calculates effective subtest duration in minutes across 3 realistic modes:
+ * - 'peepl': Authentic PEEPL pace (~55s/cognitive item & ~25s/P2 item => 55m + 25m = 80m)
+ * - 'full':  Full 2-hour session window quota (90m + 30m = 120m)
+ * - 'fast':  1/3 quick drill (~18m + 8m = 26m)
+ */
+export function getEffectiveSubtestMinutes(subtest, mode = 'peepl') {
+  if (!subtest) return 15;
+  const baseMins = subtest.durationMinutes || 15;
+  const fullMins = subtest.fullSessionMinutes || Math.round(baseMins * 1.5);
+  if (mode === 'full') return fullMins;
+  if (mode === 'fast') return Math.max(2, Math.round(baseMins / 3));
+  return baseMins;
+}
+
+/**
  * Helper to create a flat { [questionId]: question } map across all subtests of a package.
  */
 export function buildQuestionLookup(subtests = []) {
@@ -205,6 +220,13 @@ export function buildActiveSubtests(pkg, examFormat = '2-modul') {
   });
 
   const totalCognitiveMins = cognitiveSubtests.reduce((acc, st) => acc + st.durationMinutes, 0);
+  const totalCognitiveFullMins = cognitiveSubtests.reduce(
+    (acc, st) => acc + (st.fullSessionMinutes || Math.round(st.durationMinutes * 1.5)),
+    0
+  );
+  const secSummary = domainSections
+    .map((s) => `${s.shortTitle} (${s.startNumber}–${s.endNumber})`)
+    .join(', ');
 
   const penalaranModule = {
     id: 'modul-penalaran',
@@ -213,13 +235,13 @@ export function buildActiveSubtests(pkg, examFormat = '2-modul') {
     title: 'Tes Penalaran (Kognitif Adaptif PEEPL)',
     category: 'Penalaran',
     durationMinutes: totalCognitiveMins,
-    description:
-      'Format PEEPL TPP 2026: VCR-S 3 opsi + VGR (1–10), NCR-S Grafik & Tabel 6 opsi + Analogi Angka NGR (11–20), Figural SVG opsi gambar A–E & Ability to Learn (21–30), serta Kecermatan Hilang Karakter & Klerikal (31–40) dengan kalibrasi soal adaptif (✦).',
+    fullSessionMinutes: totalCognitiveFullMins,
+    description: `Skala Realistis PEEPL (${combinedCognitiveQuestions.length} soal): ${secSummary} dengan kalibrasi kesulitan CAT Adaptif (✦) dan tempo ketat ~55 detik/soal.`,
     instructions: [
-      `Subtes Penalaran ini terdiri dari ${combinedCognitiveQuestions.length} soal terpadu dengan total durasi efektif ${totalCognitiveMins} menit (siapkan kertas HVS coretan untuk hitungan manual Numerik).`,
-      'Soal mencakup 4 klaster format PEEPL: Verbal (VCR-S 3 opsi & VGR), Numerik (NCR-S Grafik/Tabel 6 opsi A–F & Analogi Angka NGR), Figural SVG (opsi gambar A–E) + Ability to Learn, serta Kecermatan Hilang Karakter.',
+      `Subtes Penalaran terdiri dari ${combinedCognitiveQuestions.length} soal terpadu dengan durasi standar PEEPL ${totalCognitiveMins} menit (~55 detik/soal — siapkan kertas HVS coretan untuk hitungan Numerik).`,
+      `Cakupan soal sesuai rasio asli PEEPL: ${secSummary}. Tidak ada pengurangan nilai untuk jawaban salah, sehingga isi seluruh nomor sebelum waktu habis.`,
       'Sistem CAT Adaptif aktif: Butir bertanda ✦ otomatis menyesuaikan tingkat kesulitan (Level Sulit HOTS vs Level Standar) berdasarkan akurasi jawaban Anda sebelumnya.',
-      'Pada halaman evaluasi akhir, skor tetap dipecah dalam grafik terpisah untuk keempat klaster kognitif tersebut.',
+      'Pada halaman evaluasi akhir, nilai akurasi tetap dirinci secara terpisah untuk keempat klaster kognitif tersebut.',
     ],
     sampleQuestion: cognitiveSubtests[0]?.sampleQuestion || null,
     domainSections,
@@ -232,15 +254,16 @@ export function buildActiveSubtests(pkg, examFormat = '2-modul') {
         id: 'modul-potensi-pribadi',
         number: 2,
         code: 'SJT_KEPRIBADIAN',
-        title: 'Tes Potensi Pribadi (P2 Karakter Bergerak & Adaptif)',
+        title: 'Tes Potensi Pribadi (60 Butir P2 Karakter Bergerak & Adaptif)',
         category: 'Potensi Pribadi',
-        description:
-          'Format Kuesioner P2 PEEPL dengan 5 karakter orang bergerak (Sangat sesuai → Sangat tidak sesuai), Kepribadian 1 (3 pilihan karakter Setuju/?/Tidak setuju), SJT Split-Pane, Soal Adaptif (✦), serta Indeks Konsistensi.',
+        durationMinutes: personalitySubtest.durationMinutes,
+        fullSessionMinutes: personalitySubtest.fullSessionMinutes || 30,
+        description: `Skala Penuh Simulasi PEEPL (${personalitySubtest.questions.length} butir dalam ${personalitySubtest.durationMinutes} menit): Kuesioner Karakter Orang Bergerak P2/P1/P3/EPPS, SJT Split-Pane, Percabangan Adaptif (✦), serta Uji Konsistensi Psikologi.`,
         instructions: [
-          `Subtes Potensi Pribadi terdiri dari ${personalitySubtest.questions.length} butir soal dengan durasi ${personalitySubtest.durationMinutes} menit (14 butir P2 PEEPL 5 karakter bergerak, 4 butir Kepribadian 1 skala 3 karakter, dan 2 SJT Split-Pane).`,
-          'Pilih gambar karakter orang bergerak yang paling mencerminkan diri Anda. Anda juga dapat mematikan opsi "Tampilkan tulisan di bawah gambar karakter" agar persis seperti simulasi P2 PEEPL asli.',
-          'Sistem Adaptif Aktif: Soal bertanda ✦ akan berubah otomatis mengikuti profil jawaban kepribadian Anda sebelumnya (misalnya jalur Reflektif/Pendiam vs Ekspresif).',
-          'Sistem juga mengevaluasi Indeks Konsistensi Psikologi (Validity Check) dan memetakan 5 dimensi sikap kerja utama.',
+          `Subtes Potensi Pribadi terdiri dari ${personalitySubtest.questions.length} butir penuh (persis jumlah 60 pernyataan simulasi P2 PEEPL) dengan durasi ${personalitySubtest.durationMinutes} menit (~15–25 detik per pernyataan).`,
+          'Jawab dengan jujur, spontan, dan konsisten melalui pilihan Karakter Orang Bergerak. Anda dapat menonaktifkan opsi "Tampilkan tulisan di bawah gambar karakter" agar persis tampilan asli PEEPL.',
+          'Sistem Adaptif Aktif: Soal bertanda ✦ akan menyesuaikan cabang pernyataan secara dinamis mengikuti jawaban kepribadian Anda sebelumnya.',
+          'Sistem mendeteksi Indeks Konsistensi Psikologi (pasangan pernyataan berlawanan) serta memetakan 5 dimensi sikap kerja utama.',
         ],
         questions: personalitySubtest.questions.map((q) => ({
           ...q,

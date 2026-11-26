@@ -15,6 +15,7 @@ import EmojiLikertScale, { PersonalitySceneSVG } from './EmojiLikertScale';
 import MissingCharPanel from './MissingCharPanel';
 import DataChartSVG from './DataChartSVG';
 import { FiguralQuestionStimulus, FiguralOptionsGrid } from './VisualFiguralSVG';
+import { getEffectiveSubtestMinutes } from '../utils/examAdapter';
 
 export default function TransitionView({
   subtest,
@@ -33,8 +34,7 @@ export default function TransitionView({
     setShowSampleSolution(false);
   }, [subtest.id]);
 
-  const durationMultiplier = mode === 'fast' ? 1 / 3 : 1;
-  const effectiveMinutes = Math.max(1, Math.round(subtest.durationMinutes * durationMultiplier));
+  const effectiveMinutes = getEffectiveSubtestMinutes(subtest, mode);
   const { sampleQuestion } = subtest;
   const stepperGridClass = allSubtests.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-5';
 
@@ -141,10 +141,12 @@ export default function TransitionView({
               <ul className="space-y-2 text-sm text-slate-700">
                 {subtest.instructions.map((inst, i) => {
                   const displayInst =
-                    mode === 'fast'
+                    effectiveMinutes !== subtest.durationMinutes
                       ? inst.replace(
                           new RegExp(`\\b${subtest.durationMinutes}\\s*menit\\b`, 'gi'),
-                          `${effectiveMinutes} menit (Mode Cepat 1/3 dari ${subtest.durationMinutes} menit)`
+                          `${effectiveMinutes} menit (${
+                            mode === 'fast' ? 'Drill Cepat 1/3' : 'Mode Kuota 120 Menit'
+                          })`
                         )
                       : inst;
                   return (

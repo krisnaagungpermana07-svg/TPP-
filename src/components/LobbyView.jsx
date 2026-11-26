@@ -13,7 +13,7 @@ import {
   Sparkles,
   LayoutList,
 } from 'lucide-react';
-import { buildActiveSubtests } from '../utils/examAdapter';
+import { buildActiveSubtests, getEffectiveSubtestMinutes } from '../utils/examAdapter';
 
 export default function LobbyView({ examData, onStartAssessment }) {
   const packages = examData.packages || [];
@@ -22,7 +22,7 @@ export default function LobbyView({ examData, onStartAssessment }) {
   const [examFormat, setExamFormat] = useState('2-modul'); // '2-modul' (Slide PPT) | '5-subtes'
   const [participantName, setParticipantName] = useState('');
   const [participantId, setParticipantId] = useState('STAN-2026-04829');
-  const [selectedMode, setSelectedMode] = useState('full'); // 'full' | 'fast'
+  const [selectedMode, setSelectedMode] = useState('peepl'); // 'peepl' | 'full' | 'fast'
   const [agreedRules, setAgreedRules] = useState(true);
   const [requestFullscreenOnStart, setRequestFullscreenOnStart] = useState(false);
   const [nameError, setNameError] = useState(false);
@@ -32,6 +32,14 @@ export default function LobbyView({ examData, onStartAssessment }) {
 
   const intiCount = packages.filter((p) => (p.group || 'inti') === 'inti').length;
   const eksternalCount = packages.filter((p) => p.group === 'eksternal').length;
+  const totalBankQuestions = useMemo(
+    () =>
+      packages.reduce(
+        (sum, pkg) => sum + (pkg.subtests || []).reduce((s2, st) => s2 + st.questions.length, 0),
+        0
+      ),
+    [packages]
+  );
 
   const visiblePackages = useMemo(() => {
     if (packageFilter === 'inti') return packages.filter((p) => (p.group || 'inti') === 'inti');
@@ -45,11 +53,10 @@ export default function LobbyView({ examData, onStartAssessment }) {
   );
 
   const totalQuestionsInPackage = previewSubtests.reduce((acc, st) => acc + st.questions.length, 0);
-  const durationMultiplier = selectedMode === 'fast' ? 1 / 3 : 1;
-  const totalMinutesDisplay =
-    selectedMode === 'fast'
-      ? Math.round(examMeta.totalEffectiveDurationMinutes / 3)
-      : examMeta.totalEffectiveDurationMinutes;
+  const totalMinutesDisplay = previewSubtests.reduce(
+    (acc, st) => acc + getEffectiveSubtestMinutes(st, selectedMode),
+    0
+  );
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -142,7 +149,11 @@ export default function LobbyView({ examData, onStartAssessment }) {
                     {totalMinutesDisplay} Menit
                   </div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
-                    {selectedMode === 'fast' ? 'Latihan Cepat (1/3)' : 'Standar Penuh (120m)'}
+                    {selectedMode === 'peepl'
+                      ? 'Pace Ketat Asli PEEPL'
+                      : selectedMode === 'fast'
+                      ? 'Drill Cepat (1/3 Durasi)'
+                      : 'Kuota Maksimal Sesi (120m)'}
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
@@ -151,7 +162,7 @@ export default function LobbyView({ examData, onStartAssessment }) {
                     {previewSubtests.length} Subtes • {totalQuestionsInPackage} Soal
                   </div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
-                    {examFormat === '2-modul' ? 'Penalaran + Potensi Pribadi' : '5 Domain Terpisah'}
+                    {examFormat === '2-modul' ? '60 Penalaran + 60 Pribadi' : '5 Bagian Terpisah'}
                   </div>
                 </div>
               </div>
@@ -175,10 +186,7 @@ export default function LobbyView({ examData, onStartAssessment }) {
 
               <div className="divide-y divide-slate-200">
                 {previewSubtests.map((st) => {
-                  const effectiveMins = Math.max(
-                    1,
-                    Math.round(st.durationMinutes * durationMultiplier)
-                  );
+                  const effectiveMins = getEffectiveSubtestMinutes(st, selectedMode);
                   return (
                     <div
                       key={st.id}
@@ -353,7 +361,7 @@ export default function LobbyView({ examData, onStartAssessment }) {
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-600 leading-snug">
-                      Penalaran (90m) + Potensi Pribadi (30m).
+                      Penalaran (60 soal) + Pribadi (60 butir).
                     </p>
                   </button>
 
@@ -369,11 +377,11 @@ export default function LobbyView({ examData, onStartAssessment }) {
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <span className="text-xs font-bold text-slate-900">5 Subtes Terpisah</span>
                       <span className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200 rounded">
-                        Drill
+                        Per Bagian
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-600 leading-snug">
-                      Timer terpisah 25+30+20+15+30m.
+                      Timer terpisah 15+20+13+7+25m (PEEPL).
                     </p>
                   </button>
                 </div>
@@ -384,7 +392,7 @@ export default function LobbyView({ examData, onStartAssessment }) {
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                   <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
                     <Package className="w-3.5 h-3.5 text-navy-800" />
-                    <span>Pilih Paket Soal ({packages.length} Paket • {packages.length * 60} Soal)</span>
+                    <span>Pilih Paket Soal ({packages.length} Paket • {totalBankQuestions} Soal)</span>
                   </label>
                 </div>
 
@@ -481,49 +489,69 @@ export default function LobbyView({ examData, onStartAssessment }) {
                 </div>
               </div>
 
-              {/* Mode Selection: Full (120m) vs Fast (1/3 duration) */}
+              {/* Mode Selection: PEEPL Pace (80m) vs Full Quota (120m) vs Fast Drill (1/3) */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
                   Pilih Mode Timer Pengerjaan
                 </label>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMode('peepl')}
+                    className={`text-left p-2.5 rounded-xl border-2 transition-all cursor-pointer ${
+                      selectedMode === 'peepl'
+                        ? 'border-navy-800 bg-navy-50/60 shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-[11px] sm:text-xs font-bold text-slate-900">Pace PEEPL</span>
+                      <span className="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-emerald-600 text-white rounded">
+                        80m
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-600 leading-snug">
+                      55m Penalaran + 25m P2 (Asli).
+                    </p>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setSelectedMode('full')}
-                    className={`text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                    className={`text-left p-2.5 rounded-xl border-2 transition-all cursor-pointer ${
                       selectedMode === 'full'
                         ? 'border-navy-800 bg-navy-50/60 shadow-sm'
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-slate-900">Simulasi Penuh</span>
-                      <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-navy-900 text-white rounded">
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-[11px] sm:text-xs font-bold text-slate-900">Kuota Sesi</span>
+                      <span className="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-navy-900 text-white rounded">
                         120m
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-600 leading-snug">
-                      {examFormat === '2-modul' ? '90m Penalaran + 30m Pribadi.' : 'Durasi asli 120 menit.'}
+                    <p className="text-[10px] text-slate-600 leading-snug">
+                      90m Penalaran + 30m P2 (Penuh).
                     </p>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setSelectedMode('fast')}
-                    className={`text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                    className={`text-left p-2.5 rounded-xl border-2 transition-all cursor-pointer ${
                       selectedMode === 'fast'
                         ? 'border-navy-800 bg-navy-50/60 shadow-sm'
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-slate-900">Latihan Cepat</span>
-                      <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 rounded">
-                        1/3 (40m)
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-[11px] sm:text-xs font-bold text-slate-900">Drill Cepat</span>
+                      <span className="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 rounded">
+                        1/3
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-600 leading-snug">
-                      {examFormat === '2-modul' ? '30m Penalaran + 10m Pribadi.' : 'Timer 1/3 untuk uji coba.'}
+                    <p className="text-[10px] text-slate-600 leading-snug">
+                      Timer 1/3 (~26m) uji coba.
                     </p>
                   </button>
                 </div>

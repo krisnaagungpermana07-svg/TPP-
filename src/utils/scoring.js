@@ -1,4 +1,8 @@
-import { resolveAdaptiveQuestion, buildQuestionLookup } from './examAdapter.js';
+import {
+  resolveAdaptiveQuestion,
+  buildQuestionLookup,
+  getEffectiveSubtestMinutes,
+} from './examAdapter.js';
 
 /**
  * Utility functions for scoring, time formatting, psychological consistency checking,
@@ -224,7 +228,6 @@ export function calculateExamResults(
   consistencyPairs = [],
   activeSubtests = null
 ) {
-  const durationMultiplier = mode === 'fast' ? 1 / 3 : 1;
   const timingSubtests =
     Array.isArray(activeSubtests) && activeSubtests.length > 0
       ? activeSubtests
@@ -236,10 +239,7 @@ export function calculateExamResults(
   let totalAllocatedSeconds = 0;
 
   const activeTimeBreakdown = timingSubtests.map((st) => {
-    const allocatedSec = Math.max(
-      60,
-      Math.round(st.durationMinutes * 60 * durationMultiplier)
-    );
+    const allocatedSec = Math.max(60, getEffectiveSubtestMinutes(st, mode) * 60);
     const spentSec = Math.min(allocatedSec, Math.max(0, subtestTimeSpent[st.id] || 0));
     totalTimeSpentSeconds += spentSec;
     totalAllocatedSeconds += allocatedSec;

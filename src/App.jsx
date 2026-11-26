@@ -5,7 +5,12 @@ import TopBar from './components/TopBar';
 import TransitionView from './components/TransitionView';
 import ExamView from './components/ExamView';
 import ResultView from './components/ResultView';
-import { buildActiveSubtests, buildQuestionLookup, resolveAdaptiveQuestion } from './utils/examAdapter';
+import {
+  buildActiveSubtests,
+  buildQuestionLookup,
+  resolveAdaptiveQuestion,
+  getEffectiveSubtestMinutes,
+} from './utils/examAdapter';
 import { ShieldAlert, X } from 'lucide-react';
 
 export default function App() {
@@ -17,7 +22,7 @@ export default function App() {
   const [participantId, setParticipantId] = useState('STAN-2026-04829');
   const [selectedPackageId, setSelectedPackageId] = useState(packages[0]?.id || 'paket-1');
   const [examFormat, setExamFormat] = useState('2-modul'); // '2-modul' (PPT) | '5-subtes'
-  const [mode, setMode] = useState('full'); // 'full' | 'fast'
+  const [mode, setMode] = useState('peepl'); // 'peepl' (80m) | 'full' (120m) | 'fast' (1/3)
 
   // Subtest & Question pointers
   const [currentSubtestIndex, setCurrentSubtestIndex] = useState(0);
@@ -70,8 +75,7 @@ export default function App() {
   }, [phase]);
 
   const getSubtestAllocatedSeconds = useCallback((subtestObj, selectedMode) => {
-    const multiplier = selectedMode === 'fast' ? 1 / 3 : 1;
-    return Math.max(60, Math.round(subtestObj.durationMinutes * 60 * multiplier));
+    return Math.max(60, getEffectiveSubtestMinutes(subtestObj, selectedMode) * 60);
   }, []);
 
   // Start assessment from Lobby -> moves to Subtest 1 Transition Page

@@ -612,7 +612,7 @@ export default function ExamView({
                           No. {sec.startNumber}–{sec.endNumber}
                         </span>
                       </div>
-                      <div className="grid grid-cols-5 gap-1.5">
+                      <div className="grid grid-cols-6 gap-1.5">
                         {secItems.map(({ q, idx }) => renderQuestionButton(q, idx))}
                       </div>
                     </div>
@@ -620,7 +620,11 @@ export default function ExamView({
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-5 gap-2">
+              <div
+                className={`grid ${
+                  questions.length >= 40 ? 'grid-cols-6 gap-1.5 max-h-[340px] overflow-y-auto pr-1' : 'grid-cols-5 gap-2'
+                }`}
+              >
                 {questions.map((q, idx) => renderQuestionButton(q, idx))}
               </div>
             )}
